@@ -1,0 +1,95 @@
+{
+  "order": ["fauna", "espacio", "historia", "cuerpo", "tecnologia"],
+  "themes": {
+    "fauna": {
+      "label": "Fauna",
+      "prompt": "Cosas verdaderas sobre animales que suenan inventadas.",
+      "truths": [
+        "Los pulpos tienen tres corazones y sangre azul.",
+        "Los wombats hacen heces en forma de cubo.",
+        "Las nutrias marinas usan piedras para abrir moluscos.",
+        "El ornitorrinco pone huevos aunque es un mamifero.",
+        "Las jirafas duermen solo unas pocas horas al dia."
+      ],
+      "lies": [
+        "Los pulpos cambian de forma para convertirse en peces por la noche.",
+        "Los wombats pueden saltar entre arboles como monos.",
+        "Las nutrias marinas fabrican cuchillos de hielo para cazar.",
+        "El ornitorrinco tiene plumas invisibles y puede volar.",
+        "Las jirafas pueden dormir seis meses seguidos sin despertar."
+      ]
+    },
+    "espacio": {
+      "label": "Espacio",
+      "prompt": "Datos del espacio que parecen ciencia ficcion.",
+      "truths": [
+        "En Venus, un dia dura mas que un ano venusiano.",
+        "La Luna se aleja de la Tierra unos centimetros cada ano.",
+        "En la ISS se ve amanecer cada 90 minutos.",
+        "Saturno tiene densidad menor que el agua.",
+        "Neptuno registra vientos extremadamente rapidos."
+      ],
+      "lies": [
+        "La Tierra tiene dos lunas permanentes invisibles.",
+        "En Marte ya existe una ciudad subterranea habitable.",
+        "Los anillos de Saturno suenan como campanas al pasar una nave.",
+        "El Sol emite sonido tan fuerte que rompe cristales en la Tierra.",
+        "Pluton fue expulsado del sistema solar por estar demasiado frio."
+      ]
+    },
+    "historia": {
+      "label": "Historia",
+      "prompt": "Hechos historicos que parecen inventados pero no lo son.",
+      "truths": [
+        "La Biblioteca de Alejandria no desaparecio en un solo incendio.",
+        "Napoleon era mas bajo que la media de su epoca, no un enano.",
+        "La Gran Muralla China no es una linea continua perfecta.",
+        "El calendario romano paso por muchos cambios antes del actual.",
+        "Ha habido guerras que duraron decadas por errores de interpretacion."
+      ],
+      "lies": [
+        "Napoleon prohibio los botones redondos en toda Francia.",
+        "Los romanos votaban con piedras codificadas que caian del cielo.",
+        "La Gran Muralla China fue pintada de blanco para reflejar las estrellas.",
+        "Cleopatra invento el primer reloj despertador de agua.",
+        "Los vikings usaban helado para conservar espadas en verano."
+      ]
+    },
+    "cuerpo": {
+      "label": "Cuerpo",
+      "prompt": "Funciones del cuerpo que parecen demasiado potentes.",
+      "truths": [
+        "El higado puede regenerarse parcialmente.",
+        "La piel es el organo mas grande del cuerpo humano.",
+        "El cerebro consume mucha energia incluso en reposo.",
+        "Los huesos son muy resistentes en relacion a su peso.",
+        "Los intestinos tienen una superficie enorme por sus pliegues internos."
+      ],
+      "lies": [
+        "El corazon humano llena una piscina cada minuto.",
+        "El cerebro humano guarda exactamente un millon de recuerdos fotografiados.",
+        "La piel cambia de color como una pantalla led cuando tienes frio.",
+        "Los dientes se regeneran por completo cada siete anos.",
+        "El cuerpo humano produce luz visible sin ayuda externa."
+      ]
+    },
+    "tecnologia": {
+      "label": "Tecnologia",
+      "prompt": "Inventos y errores tecnologicos que parecen imposibles.",
+      "truths": [
+        "El primer raton de computadora era de madera.",
+        "Los primeros computadores ocupaban habitaciones enteras.",
+        "El Wi-Fi nace de un proceso de estandarizacion largo.",
+        "Los codigos de barras surgieron para automatizar cajas y almacenes.",
+        "Bluetooth toma su nombre de un rey vikingo."
+      ],
+      "lies": [
+        "El Wi-Fi se descubrio al calentar una tostadora con imanes.",
+        "El primer raton de computadora fue una patata con ruedas.",
+        "Los emojis se inventaron para traducir lenguaje de delfines.",
+        "Bluetooth se llama asi porque los dispositivos eran azules por defecto.",
+        "Los teclados actuales vienen de un piano sin cuerdas de 1899."
+      ]
+    }
+  }
+}
