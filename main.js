@@ -22,6 +22,8 @@ const state = {
   currentUser: null,
   busyAction: '',
   themes: null,
+  statementChoice: 'truth',
+  statementRoundKey: '',
 };
 
 let auth = null;
@@ -234,11 +236,11 @@ function template() {
   function lobbyTemplate(meta, players, scoreboard) {
     const hostSelectedThemes = meta.selectedThemes || [];
     const canEditThemes = isHost && meta.status === 'lobby';
-    const canStartGame = isHost && players.length >= 4 && state.busyAction !== 'startGame';
+    const canStartGame = isHost && players.length >= 2 && state.busyAction !== 'startGame';
     const startHint = !isHost
       ? 'Solo el host puede empezar la partida.'
-      : players.length < 4
-        ? 'Necesitas al menos 4 jugadores para empezar.'
+      : players.length < 2
+        ? 'Necesitas al menos 2 jugadores para empezar.'
         : 'Todo listo para empezar.';
     return `
       <div class="layout game-layout">
@@ -347,11 +349,17 @@ function template() {
   function promptTemplate(players, currentRound) {
     const speaker = players.find((player) => player.id === currentRound?.speakerId);
     if (currentUserId === currentRound?.speakerId) {
+      const roundKey = String(currentRound?.index || currentRound?.roundId || '');
+      if (state.statementRoundKey !== roundKey) {
+        state.statementRoundKey = roundKey;
+        state.statementChoice = 'truth';
+      }
+      const selectedStatement = state.statementChoice || 'truth';
       return `
         <form id="statement-form" class="form-grid">
           <div class="split-grid">
-            <label class="choice-card ${currentRound?.chosenType !== 'lie' ? 'active' : ''}"><input type="radio" name="statementType" value="truth" ${currentRound?.chosenType !== 'lie' ? 'checked' : ''} /><div class="choice-copy"><strong>Verdad Rara</strong><p>${escapeHtml(currentRound?.truthText || '')}</p></div></label>
-            <div class="choice-card lie-choice ${currentRound?.chosenType === 'lie' ? 'active' : ''}"><label class="choice-radio"><input type="radio" name="statementType" value="lie" ${currentRound?.chosenType === 'lie' ? 'checked' : ''} /><span>Mentira Plausible</span></label><div class="choice-copy"><p>Escribe una mentira que suene convincente.</p><textarea class="statement-input" name="customText" placeholder="Escribe o mejora tu mentira">${escapeHtml(currentRound?.lieText || '')}</textarea></div></div>
+            <label class="choice-card ${selectedStatement !== 'lie' ? 'active' : ''}" data-statement-choice="truth"><input type="radio" name="statementType" value="truth" ${selectedStatement !== 'lie' ? 'checked' : ''} /><div class="choice-copy"><strong>Verdad Rara</strong><p>${escapeHtml(currentRound?.truthText || '')}</p></div></label>
+            <div class="choice-card lie-choice ${selectedStatement === 'lie' ? 'active' : ''}" data-statement-choice="lie"><label class="choice-radio"><input type="radio" name="statementType" value="lie" ${selectedStatement === 'lie' ? 'checked' : ''} /><span>Mentira Plausible</span></label><div class="choice-copy"><p>Escribe una mentira que suene convincente.</p><textarea class="statement-input" name="customText" placeholder="Escribe o mejora tu mentira">${escapeHtml(currentRound?.lieText || '')}</textarea></div></div>
           </div>
           <button type="submit" class="primary-button" ${state.busyAction === 'submitStatement' ? 'disabled' : ''}>${state.busyAction === 'submitStatement' ? 'Publicando...' : 'Publicar Frase'}</button>
         </form>
@@ -400,6 +408,11 @@ function wireEvents() {
   document.querySelectorAll('[data-action="start-game"]').forEach((button) => button.addEventListener('click', startGame));
   document.querySelectorAll('[data-action="next-round"]').forEach((button) => button.addEventListener('click', nextRound));
   document.querySelectorAll('[data-vote]').forEach((button) => button.addEventListener('click', () => castVote(button.dataset.vote)));
+  document.querySelectorAll('[data-statement-choice]').forEach((card) => card.addEventListener('click', (event) => {
+    if (event.target instanceof HTMLTextAreaElement && card.dataset.statementChoice !== 'lie') return;
+    selectStatementChoice(card.dataset.statementChoice);
+  }));
+  document.querySelectorAll('.statement-input').forEach((input) => input.addEventListener('focus', () => selectStatementChoice('lie')));
   document.querySelectorAll('[data-theme-toggle]').forEach((input) => input.addEventListener('change', toggleThemeSelection));
   document.querySelectorAll('[data-rounds-slider]').forEach((input) => input.addEventListener('input', updateRoundsTotal));
 
@@ -488,6 +501,21 @@ function startPresenceLoop() {
     if (!database || !state.roomCode || !getUserId()) return;
     database.ref(`rooms/${state.roomCode}/players/${getUserId()}`).update({ lastSeenAt: Date.now() }).catch(() => {});
   }, 8000);
+}
+
+function selectStatementChoice(choice) {
+  const form = document.getElementById('statement-form');
+  if (!form || (choice !== 'truth' && choice !== 'lie')) return;
+
+  state.statementChoice = choice;
+
+  form.querySelectorAll('[data-statement-choice]').forEach((card) => {
+    card.classList.toggle('active', card.dataset.statementChoice === choice);
+  });
+
+  form.querySelectorAll('input[name="statementType"]').forEach((radio) => {
+    radio.checked = radio.value === choice;
+  });
 }
 
 function startUiClockLoop() {
@@ -628,8 +656,8 @@ async function startGame() {
 
   await withBusy('startGame', async () => {
     const playersList = orderedPlayers(room.players || {});
-    if (playersList.length < 4) {
-      state.error = 'Necesitas al menos 4 jugadores.';
+    if (playersList.length < 2) {
+      state.error = 'Necesitas al menos 2 jugadores.';
       render();
       return;
     }
@@ -670,16 +698,25 @@ async function submitStatement(event) {
     await updateRoomMeta((meta) => {
       if (meta.status !== 'prompt' || meta.currentRound?.speakerId !== getUserId()) return meta;
 
+      const selectedStatementType = form.querySelector('input[name="statementType"]:checked')?.value === 'lie' ? 'lie' : 'truth';
+
       const nextRound = {
         ...meta.currentRound,
-        chosenType: statementType,
-        chosenText: statementType === 'lie' ? (customText || meta.currentRound.lieText) : meta.currentRound.truthText,
+        chosenType: selectedStatementType,
+        chosenText: selectedStatementType === 'lie' ? (customText || meta.currentRound.lieText) : meta.currentRound.truthText,
         status: 'vote',
         votes: {},
         updatedAt: Date.now(),
       };
 
       meta.currentRound = nextRound;
+      state.statementChoice = 'truth';
+      state.statementRoundKey = '';
+      if (Object.keys(room.players || {}).length <= 1 || nextRound.requiredVotes <= 0) {
+        meta.status = 'vote';
+        return resolveRound(meta, room.players || {}, nextRound);
+      }
+
       meta.status = 'vote';
       return meta;
     });
