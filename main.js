@@ -119,9 +119,10 @@ function pickItem(items) {
 }
 
 function buildRound(roomMeta, playersList, roundIndex) {
+  const safePlayers = Array.isArray(playersList) ? playersList.filter(Boolean) : [];
   const themeKey = roomMeta.selectedThemes[roundIndex % roomMeta.selectedThemes.length];
   const theme = state.themes.themes[themeKey];
-  const speaker = playersList[roundIndex % playersList.length];
+  const speaker = safePlayers[roundIndex % safePlayers.length];
   return {
     roundId: `round-${roundIndex + 1}`,
     index: roundIndex + 1,
@@ -134,7 +135,7 @@ function buildRound(roomMeta, playersList, roundIndex) {
     chosenType: null,
     chosenText: '',
     votes: {},
-    requiredVotes: Math.max(playersList.length - 1, 0),
+    requiredVotes: Math.max(safePlayers.length - 1, 0),
     status: 'prompt',
     result: null,
   };
@@ -181,6 +182,8 @@ function template() {
   const currentRound = meta?.currentRound || null;
   const isHost = Boolean(meta && currentUserId && meta.hostId === currentUserId);
   const hasRoom = Boolean(state.roomCode && room);
+  const playersPerCycle = Math.max(players.length, 1);
+  const displayedRound = meta?.currentRoundIndex ? Math.ceil(meta.currentRoundIndex / playersPerCycle) : 0;
   const scoreboard = players
     .map((player) => ({ ...player, score: currentScores[player.id] || 0 }))
     .sort((left, right) => right.score - left.score || left.joinedAt - right.joinedAt);
@@ -198,7 +201,7 @@ function template() {
           <h1>Verdad rara. Mentira plausible.</h1>
         </div>
       </header>
-      ${!hasRoom ? landingTemplate() : meta?.status === 'lobby' ? lobbyTemplate(meta, players, scoreboard) : meta?.status === 'finished' ? finishedTemplate(meta, scoreboard, winners, topScore) : gameTemplate(meta, players, currentRound, scoreboard, isHost, currentUserId)}
+      ${!hasRoom ? landingTemplate() : meta?.status === 'lobby' ? lobbyTemplate(meta, players, scoreboard) : meta?.status === 'finished' ? finishedTemplate(meta, scoreboard, winners, topScore) : gameTemplate(meta, players, currentRound, scoreboard, isHost, currentUserId, displayedRound)}
     </main>
   `;
 
@@ -232,6 +235,11 @@ function template() {
     const hostSelectedThemes = meta.selectedThemes || [];
     const canEditThemes = isHost && meta.status === 'lobby';
     const canStartGame = isHost && players.length >= 4 && state.busyAction !== 'startGame';
+    const startHint = !isHost
+      ? 'Solo el host puede empezar la partida.'
+      : players.length < 4
+        ? 'Necesitas al menos 4 jugadores para empezar.'
+        : 'Todo listo para empezar.';
     return `
       <div class="layout game-layout">
         <section class="panel sidebar-panel">
@@ -255,6 +263,7 @@ function template() {
             <div class="card-head"><div><p class="card-title">Temas</p></div></div>
             ${canEditThemes ? roundsSliderTemplate(meta.roundsTotal) : ''}
             ${canEditThemes ? themeChecklistTemplate(hostSelectedThemes) : `<div class="soft-card"><p class="card-note">Temas seleccionados por el host:</p><p>${hostSelectedThemes.map((themeKey) => state.themes.themes[themeKey]?.label).join(', ')}</p></div>`}
+            <div class="soft-card start-hint-card"><p class="card-note">${startHint}</p></div>
             ${isHost ? `<div class="button-row"><button type="button" class="primary-button" data-action="start-game" ${!canStartGame ? 'disabled' : ''}>${state.busyAction === 'startGame' ? 'Iniciando...' : 'Empezar Partida'}</button></div>` : ''}
           </div>
         </section>
@@ -294,14 +303,14 @@ function template() {
     `;
   }
 
-  function gameTemplate(meta, players, currentRound, scoreboard, isHost, currentUserId) {
+  function gameTemplate(meta, players, currentRound, scoreboard, isHost, currentUserId, displayedRound) {
     return `
       <div class="layout game-layout">
         <section class="panel sidebar-panel">
           <div class="panel-inner stack">
             <div class="room-code-block"><span>Código</span><strong>${state.roomCode}</strong></div>
             <div class="summary-grid">
-              <div class="stat-card"><span>Ronda</span><strong>${meta.currentRoundIndex || 0}</strong></div>
+              <div class="stat-card"><span>Ronda</span><strong>${displayedRound || 0}</strong></div>
               <div class="stat-card"><span>Tiempo</span><strong>${formatElapsedTime(meta.startedAt)}</strong></div>
               <div class="stat-card"><span>Puntos</span><strong>${currentScores[currentUserId] || 0}</strong></div>
             </div>
@@ -342,7 +351,7 @@ function template() {
         <form id="statement-form" class="form-grid">
           <div class="split-grid">
             <label class="choice-card ${currentRound?.chosenType !== 'lie' ? 'active' : ''}"><input type="radio" name="statementType" value="truth" ${currentRound?.chosenType !== 'lie' ? 'checked' : ''} /><div class="choice-copy"><strong>Verdad Rara</strong><p>${escapeHtml(currentRound?.truthText || '')}</p></div></label>
-            <label class="choice-card ${currentRound?.chosenType === 'lie' ? 'active' : ''}"><input type="radio" name="statementType" value="lie" ${currentRound?.chosenType === 'lie' ? 'checked' : ''} /><div class="choice-copy"><strong>Mentira Plausible</strong><p>Escribe una mentira que suene convincente.</p><textarea class="statement-input" name="customText" placeholder="Escribe o mejora tu mentira">${escapeHtml(currentRound?.lieText || '')}</textarea></div></label>
+            <div class="choice-card lie-choice ${currentRound?.chosenType === 'lie' ? 'active' : ''}"><label class="choice-radio"><input type="radio" name="statementType" value="lie" ${currentRound?.chosenType === 'lie' ? 'checked' : ''} /><span>Mentira Plausible</span></label><div class="choice-copy"><p>Escribe una mentira que suene convincente.</p><textarea class="statement-input" name="customText" placeholder="Escribe o mejora tu mentira">${escapeHtml(currentRound?.lieText || '')}</textarea></div></div>
           </div>
           <button type="submit" class="primary-button" ${state.busyAction === 'submitStatement' ? 'disabled' : ''}>${state.busyAction === 'submitStatement' ? 'Publicando...' : 'Publicar Frase'}</button>
         </form>
@@ -697,16 +706,19 @@ async function nextRound() {
       if (meta.status !== 'reveal') return meta;
 
       const nextIndex = Number(meta.currentRoundIndex || 0);
-      if (nextIndex >= Number(meta.roundsTotal || 0)) {
+      const playersList = orderedPlayers(room.players || {});
+      const playerOrder = meta.playerOrder && meta.playerOrder.length ? meta.playerOrder : playersList.map((player) => player.id);
+      const ordered = playerOrder.map((playerId) => playersList.find((player) => player.id === playerId)).filter(Boolean);
+      const turnPlayers = ordered.length ? ordered : playersList;
+      const totalTurns = Number(meta.roundsTotal || 0) * Math.max(turnPlayers.length, 0);
+
+      if (nextIndex >= totalTurns) {
         meta.status = 'finished';
         meta.currentRound = null;
         return meta;
       }
 
-      const playersList = orderedPlayers(room.players || {});
-      const playerOrder = meta.playerOrder && meta.playerOrder.length ? meta.playerOrder : playersList.map((player) => player.id);
-      const ordered = playerOrder.map((playerId) => playersList.find((player) => player.id === playerId)).filter(Boolean);
-      const round = buildRound(meta, ordered.length ? ordered : playersList, nextIndex);
+      const round = buildRound(meta, turnPlayers, nextIndex);
 
       meta.currentRoundIndex = nextIndex + 1;
       meta.currentRound = round;
