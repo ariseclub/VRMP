@@ -160,6 +160,13 @@ function formatElapsedTime(startedAt) {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+function formatWinnerNames(winners) {
+  const names = winners.map((player) => escapeHtml(player.name)).filter(Boolean);
+  if (names.length <= 1) return names[0] || 'sin ganador';
+  if (names.length === 2) return `${names[0]} y ${names[1]}`;
+  return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
+}
+
 function render() {
   document.getElementById('app').innerHTML = template();
   wireEvents();
@@ -225,11 +232,6 @@ function template() {
     const hostSelectedThemes = meta.selectedThemes || [];
     const canEditThemes = isHost && meta.status === 'lobby';
     const canStartGame = isHost && players.length >= 4 && state.busyAction !== 'startGame';
-    const startHint = !isHost
-      ? 'Solo el host puede empezar la partida.'
-      : players.length < 4
-        ? 'Necesitas al menos 4 jugadores para empezar.'
-        : 'Todo listo para empezar.';
     return `
       <div class="layout game-layout">
         <section class="panel sidebar-panel">
@@ -245,7 +247,6 @@ function template() {
               <div class="player-list">${scoreboard.map((player) => `<div class="player-row"><span>${escapeHtml(player.name)}${player.id === meta.hostId ? ' · Host' : ''}</span><strong>${player.score} pts</strong></div>`).join('')}</div>
             </div>
             <button type="button" class="secondary-button" data-action="copy-code">Copiar Código</button>
-            ${canEditThemes ? '<button type="button" class="secondary-button" data-action="add-bots">Añadir Bots</button>' : ''}
             <button type="button" class="ghost-button" data-action="leave-room">Salir</button>
           </div>
         </section>
@@ -254,8 +255,7 @@ function template() {
             <div class="card-head"><div><p class="card-title">Temas</p></div></div>
             ${canEditThemes ? roundsSliderTemplate(meta.roundsTotal) : ''}
             ${canEditThemes ? themeChecklistTemplate(hostSelectedThemes) : `<div class="soft-card"><p class="card-note">Temas seleccionados por el host:</p><p>${hostSelectedThemes.map((themeKey) => state.themes.themes[themeKey]?.label).join(', ')}</p></div>`}
-            <div class="soft-card start-hint-card"><p class="card-note">${startHint}</p></div>
-            <div class="button-row"><button type="button" class="primary-button" data-action="start-game" ${!canStartGame ? 'disabled' : ''}>${state.busyAction === 'startGame' ? 'Iniciando...' : players.length < 4 ? 'Faltan 4 jugadores' : 'Empezar Partida'}</button></div>
+            ${isHost ? `<div class="button-row"><button type="button" class="primary-button" data-action="start-game" ${!canStartGame ? 'disabled' : ''}>${state.busyAction === 'startGame' ? 'Iniciando...' : 'Empezar Partida'}</button></div>` : ''}
           </div>
         </section>
       </div>
@@ -326,7 +326,7 @@ function template() {
         <section class="panel sidebar-panel finished-panel">
           <div class="panel-inner stack">
             <div class="room-code-block"><span>Resultados</span><strong>${state.roomCode}</strong></div>
-            <div class="soft-card success-card">${winners.length > 1 ? `Empate entre ${winners.map((player) => escapeHtml(player.name)).join(', ')} con ${topScore} puntos.` : `Ganador ${escapeHtml(winners[0]?.name || 'sin ganador')} con ${topScore} puntos.`}</div>
+            <div class="soft-card success-card">${winners.length > 1 ? `Empate entre ${formatWinnerNames(winners)} con ${topScore} puntos.` : `Ganador ${formatWinnerNames(winners)} con ${topScore} puntos.`}</div>
             <div class="leaderboard">${scoreboard.map((player) => `<div class="leaderboard-row"><span>${escapeHtml(player.name)}</span><strong>${player.score} pts</strong></div>`).join('')}</div>
             ${isHost ? '<button type="button" class="primary-button" data-action="return-lobby">Volver</button>' : ''}
           </div>
@@ -369,7 +369,7 @@ function template() {
       <div class="stack">
         <div class="statement-block reveal-block">${escapeHtml(currentRound?.chosenText || '')}</div>
         <div class="soft-card"><p><strong>Tipo real:</strong> ${currentRound?.chosenType === 'truth' ? 'Verdad' : 'Mentira'}</p><p><strong>Jugador:</strong> ${escapeHtml(players.find((player) => player.id === currentRound?.speakerId)?.name || '—')}</p><p><strong>Consenso:</strong> ${currentRound?.result?.consensusVote === 'truth' ? 'Verdad' : 'Mentira'} (${currentRound?.result?.truthVotes || 0} verdad / ${currentRound?.result?.lieVotes || 0} mentira)</p><p><strong>Cambio total:</strong> ${(currentRound?.result?.totalDelta || 0) >= 0 ? '+' : ''}${currentRound?.result?.totalDelta || 0}</p></div>
-        <button type="button" class="primary-button" data-action="next-round" ${!isHost || state.busyAction === 'nextRound' ? 'disabled' : ''}>${state.busyAction === 'nextRound' ? 'Avanzando...' : 'Siguiente ronda'}</button>
+        ${isHost ? `<button type="button" class="primary-button" data-action="next-round" ${state.busyAction === 'nextRound' ? 'disabled' : ''}>${state.busyAction === 'nextRound' ? 'Avanzando...' : 'Siguiente ronda'}</button>` : ''}
       </div>
     `;
   }
@@ -385,7 +385,6 @@ function wireEvents() {
   if (statementForm) statementForm.addEventListener('submit', submitStatement);
 
   document.querySelectorAll('[data-action="copy-code"]').forEach((button) => button.addEventListener('click', copyRoomCode));
-  document.querySelectorAll('[data-action="add-bots"]').forEach((button) => button.addEventListener('click', addBotsToRoom));
   document.querySelectorAll('[data-action="leave-room"]').forEach((button) => button.addEventListener('click', leaveRoom));
   document.querySelectorAll('[data-action="return-lobby"]').forEach((button) => button.addEventListener('click', returnToLobby));
   document.querySelectorAll('[data-action="close-room"]').forEach((button) => button.addEventListener('click', closeRoom));
