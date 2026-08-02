@@ -24,6 +24,7 @@ const state = {
   themes: null,
   statementChoice: 'truth',
   statementRoundKey: '',
+  statementDraft: '',
 };
 
 let auth = null;
@@ -306,6 +307,7 @@ function template() {
   }
 
   function gameTemplate(meta, players, currentRound, scoreboard, isHost, currentUserId, displayedRound) {
+    const speaker = players.find((player) => player.id === currentRound?.speakerId);
     return `
       <div class="layout game-layout">
         <section class="panel sidebar-panel">
@@ -313,7 +315,7 @@ function template() {
             <div class="room-code-block"><span>Código</span><strong>${state.roomCode}</strong></div>
             <div class="summary-grid">
               <div class="stat-card"><span>Ronda</span><strong>${displayedRound || 0}</strong></div>
-              <div class="stat-card"><span>Tiempo</span><strong>${formatElapsedTime(meta.startedAt)}</strong></div>
+              <div class="stat-card"><span>Tiempo</span><strong data-elapsed-time>${formatElapsedTime(meta.startedAt)}</strong></div>
               <div class="stat-card"><span>Puntos</span><strong>${currentScores[currentUserId] || 0}</strong></div>
             </div>
             <div class="card-surface soft-card"><p class="card-title">Marcador</p><div class="player-list">${scoreboard.map((player) => `<div class="player-row"><span>${escapeHtml(player.name)}</span><strong>${player.score} pts</strong></div>`).join('')}</div></div>
@@ -323,7 +325,7 @@ function template() {
         </section>
         <section class="panel main-panel">
           <div class="panel-inner stack">
-            <div class="card-head"><div><p class="card-title">Ronda ${currentRound?.index || 0} · ${currentRound?.themeLabel || ''}</p><p class="card-note">${currentRound?.themePrompt || ''}</p></div><span class="pill">${getStatusLabel(meta.status)}</span></div>
+            <div class="card-head"><div><p class="card-title">Turno de ${escapeHtml(speaker?.name || 'Jugador')}</p><p class="card-note">${currentRound?.themeLabel || ''}${currentRound?.themePrompt ? ` · ${currentRound.themePrompt}` : ''}</p></div><span class="pill">${getStatusLabel(meta.status)}</span></div>
             ${meta.status === 'prompt' ? promptTemplate(players, currentRound) : meta.status === 'vote' ? voteTemplate(currentRound) : revealTemplate(players, currentRound, isHost)}
           </div>
         </section>
@@ -348,18 +350,20 @@ function template() {
 
   function promptTemplate(players, currentRound) {
     const speaker = players.find((player) => player.id === currentRound?.speakerId);
+    const roundKey = String(currentRound?.index || currentRound?.roundId || '');
+    if (state.statementRoundKey !== roundKey) {
+      state.statementRoundKey = roundKey;
+      state.statementChoice = 'truth';
+      state.statementDraft = currentRound?.lieText || '';
+    }
+
     if (currentUserId === currentRound?.speakerId) {
-      const roundKey = String(currentRound?.index || currentRound?.roundId || '');
-      if (state.statementRoundKey !== roundKey) {
-        state.statementRoundKey = roundKey;
-        state.statementChoice = 'truth';
-      }
       const selectedStatement = state.statementChoice || 'truth';
       return `
         <form id="statement-form" class="form-grid">
           <div class="split-grid">
             <label class="choice-card ${selectedStatement !== 'lie' ? 'active' : ''}" data-statement-choice="truth"><input type="radio" name="statementType" value="truth" ${selectedStatement !== 'lie' ? 'checked' : ''} /><div class="choice-copy"><strong>Verdad Rara</strong><p>${escapeHtml(currentRound?.truthText || '')}</p></div></label>
-            <div class="choice-card lie-choice ${selectedStatement === 'lie' ? 'active' : ''}" data-statement-choice="lie"><label class="choice-radio"><input type="radio" name="statementType" value="lie" ${selectedStatement === 'lie' ? 'checked' : ''} /><span>Mentira Plausible</span></label><div class="choice-copy"><p>Escribe una mentira que suene convincente.</p><textarea class="statement-input" name="customText" placeholder="Escribe o mejora tu mentira">${escapeHtml(currentRound?.lieText || '')}</textarea></div></div>
+            <div class="choice-card lie-choice ${selectedStatement === 'lie' ? 'active' : ''}" data-statement-choice="lie"><div class="lie-header"><label class="choice-radio"><input type="radio" name="statementType" value="lie" ${selectedStatement === 'lie' ? 'checked' : ''} /><span>Mentira Plausible</span></label><p class="card-note">Escribe una mentira que suene convincente.</p></div><textarea class="statement-input" name="customText" placeholder="Escribe o mejora tu mentira">${escapeHtml(state.statementDraft || currentRound?.lieText || '')}</textarea></div>
           </div>
           <button type="submit" class="primary-button" ${state.busyAction === 'submitStatement' ? 'disabled' : ''}>${state.busyAction === 'submitStatement' ? 'Publicando...' : 'Publicar Frase'}</button>
         </form>
@@ -413,6 +417,10 @@ function wireEvents() {
     selectStatementChoice(card.dataset.statementChoice);
   }));
   document.querySelectorAll('.statement-input').forEach((input) => input.addEventListener('focus', () => selectStatementChoice('lie')));
+  document.querySelectorAll('.statement-input').forEach((input) => input.addEventListener('input', (event) => {
+    state.statementDraft = event.target.value;
+    selectStatementChoice('lie');
+  }));
   document.querySelectorAll('[data-theme-toggle]').forEach((input) => input.addEventListener('change', toggleThemeSelection));
   document.querySelectorAll('[data-rounds-slider]').forEach((input) => input.addEventListener('input', updateRoundsTotal));
 
@@ -523,7 +531,8 @@ function startUiClockLoop() {
   uiClockInterval = setInterval(() => {
     const room = getRoom();
     if (!room?.meta || room.meta.status === 'lobby' || room.meta.status === 'finished' || !room.meta.startedAt) return;
-    render();
+    const clockNode = document.querySelector('[data-elapsed-time]');
+    if (clockNode) clockNode.textContent = formatElapsedTime(room.meta.startedAt);
   }, 1000);
 }
 
@@ -656,8 +665,8 @@ async function startGame() {
 
   await withBusy('startGame', async () => {
     const playersList = orderedPlayers(room.players || {});
-    if (playersList.length < 2) {
-      state.error = 'Necesitas al menos 2 jugadores.';
+    if (playersList.length < 1) {
+      state.error = 'Necesitas al menos 1 jugador.';
       render();
       return;
     }
@@ -691,8 +700,6 @@ async function submitStatement(event) {
   if (!database || !state.roomCode || !room?.meta || !room.meta.currentRound) return;
 
   const form = event.currentTarget;
-  const statementType = form.statementType.value === 'lie' ? 'lie' : 'truth';
-  const customText = String(form.customText.value || '').trim();
 
   await withBusy('submitStatement', async () => {
     await updateRoomMeta((meta) => {
@@ -703,7 +710,7 @@ async function submitStatement(event) {
       const nextRound = {
         ...meta.currentRound,
         chosenType: selectedStatementType,
-        chosenText: selectedStatementType === 'lie' ? (customText || meta.currentRound.lieText) : meta.currentRound.truthText,
+        chosenText: selectedStatementType === 'lie' ? (state.statementDraft || form.customText.value || meta.currentRound.lieText) : meta.currentRound.truthText,
         status: 'vote',
         votes: {},
         updatedAt: Date.now(),
@@ -711,6 +718,7 @@ async function submitStatement(event) {
 
       meta.currentRound = nextRound;
       state.statementChoice = 'truth';
+      state.statementDraft = nextRound.lieText || '';
       state.statementRoundKey = '';
       if (Object.keys(room.players || {}).length <= 1 || nextRound.requiredVotes <= 0) {
         meta.status = 'vote';
