@@ -83,12 +83,18 @@ input[type="range"]:focus-visible::-webkit-slider-thumb, input[type="range"]:foc
 .vote-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .choice-card { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--line); background: rgba(255,255,255,.03); }
 .choice-card.active { border-color: rgba(124, 244, 214, .42); }
+.choice-card { cursor: pointer; }
 .choice-card strong { display: block; font-size: 1.02rem; line-height: 1.2; }
 .choice-card > input { flex: 0 0 auto; margin-top: 4px; }
 .choice-card > div { flex: 1; min-width: 0; }
 .choice-card p { margin: 0; color: var(--muted); line-height: 1.5; }
 .choice-copy { display: grid; gap: 8px; min-width: 0; }
-.statement-input { min-height: 94px; padding: 12px 12px; border-radius: 14px; border: 1px solid var(--line); background: rgba(4, 8, 14, .85); color: var(--text); resize: vertical; }
+.lie-choice { display: grid; gap: 12px; padding: 16px; }
+.lie-header { display: grid; gap: 8px; }
+.choice-radio { display: flex; align-items: center; gap: 12px; }
+.choice-radio span { font-weight: 700; line-height: 1.2; }
+.choice-radio input { margin-top: 4px; }
+.statement-input { min-height: 124px; padding: 13px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(4, 8, 14, .85); color: var(--text); resize: vertical; line-height: 1.55; }
 .leaderboard { display: grid; gap: 10px; }
 .split-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .theme-option input, .choice-card input { margin-top: 4px; }
